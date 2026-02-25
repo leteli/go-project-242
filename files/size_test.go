@@ -9,65 +9,118 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createTestFile(testFilePath string, size int) error {
+func createTestFile(t *testing.T, testFilePath string, size int) {
+	t.Helper()
 	bytes := strings.Repeat("1", size)
 	err := os.WriteFile(testFilePath, []byte(bytes), 0644)
-	return err
+	require.NoError(t, err, "unable to create test file")
 }
 
 func TestGetPathSize(t *testing.T) {
 	tempDir := t.TempDir()
+
 	file5B := filepath.Join(tempDir, "file5.txt")
-	err := createTestFile(file5B, 5)
-	if err != nil {
-		t.Fatalf("unable to create test file, %v", err)
-	}
+	createTestFile(t, file5B, 5)
+
 	file10B := filepath.Join(tempDir, "file10.txt")
-	err = createTestFile(file10B, 10)
-	if err != nil {
-		t.Fatalf("unable to create test file, %v", err)
-	}
+	createTestFile(t, file10B, 10)
+
+	hiddenFile25 := filepath.Join(tempDir, ".hidden25")
+	createTestFile(t, hiddenFile25, 25)
+
+	tempDir2 := t.TempDir()
+	file1038B := filepath.Join(tempDir2, ".hidden1038")
+	createTestFile(t, file1038B, 1038)
+
+	dir := t.TempDir()
+	hiddenDir, err := os.MkdirTemp(dir, ".hidden")
+	require.NoError(t, err)
+
+	file2 := filepath.Join(hiddenDir, "file2")
+	createTestFile(t, file2, 2)
+
+	// TODO: add setup funcs
 	testCases := []struct {
 		name         string
 		path         string
-		expectedSize int
+		expectedSize int64
+		withHidden   bool
 		expectError  bool
 	}{
 		{
 			name:         "1 file of 5 bytes",
 			path:         file5B,
 			expectedSize: 5,
+			withHidden:   false,
 			expectError:  false,
 		},
 		{
 			name:         "1 file of 10 bytes",
 			path:         file10B,
 			expectedSize: 10,
+			withHidden:   false,
 			expectError:  false,
 		},
 		{
 			name:         "1 directory with 2 files",
 			path:         tempDir,
 			expectedSize: 15,
+			withHidden:   false,
 			expectError:  false,
 		},
 		{
-			name:         "1 directory with 2 files",
+			name:         "Empty path returns error",
 			path:         "",
 			expectedSize: 0,
+			withHidden:   false,
 			expectError:  true,
+		},
+		{
+			name:         "1 directory with 2 regular files and 1 hidden: show hidden",
+			path:         tempDir,
+			expectedSize: 40,
+			withHidden:   true,
+			expectError:  false,
+		},
+		{
+			name:         "1 directory with 2 regular files and 1 hidden: do not show hidden",
+			path:         tempDir,
+			expectedSize: 15,
+			withHidden:   false,
+			expectError:  false,
+		},
+		{
+			name:         "1 directory with 1 hidden file: show hidden",
+			path:         tempDir2,
+			expectedSize: 1038,
+			withHidden:   true,
+			expectError:  false,
+		},
+		{
+			name:         "1 directory with 1 hidden file: do not show hidden",
+			path:         tempDir2,
+			expectedSize: 0,
+			withHidden:   false,
+			expectError:  false,
+		},
+		{
+			name:         "1 hidden directory with 1 regular file: do not show hidden",
+			path:         hiddenDir,
+			expectedSize: 0,
+			withHidden:   false,
+			expectError:  false,
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			size, err := GetSize(testCase.path)
-			if testCase.expectError {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			size, err := GetSize(tc.path, tc.withHidden)
+			if tc.expectError {
 				require.EqualError(t, err, "file path is empty")
 			} else {
 				require.NoError(t, err)
 			}
-			require.Equal(t, testCase.expectedSize, size)
+			require.Equal(t, tc.expectedSize, size)
 		})
 	}
 }
@@ -144,15 +197,15 @@ func TestGetFormatSize(t *testing.T) {
 			expectError:    true,
 		},
 	}
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			formattedSize, err := FormatSize(int(testCase.size), testCase.humanReadable)
-			if testCase.expectError {
-				require.EqualError(t, err, "size cannot be negative")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			formattedSize, err := FormatSize(int64(tc.size), tc.humanReadable)
+			if tc.expectError {
+				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}
-			require.Equal(t, testCase.expectedResult, formattedSize, "sizes do not match")
+			require.Equal(t, tc.expectedResult, formattedSize)
 		})
 	}
 }

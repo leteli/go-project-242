@@ -14,7 +14,7 @@ var formats = []struct {
 	{name: "KB", value: 1e3},
 }
 
-func FormatSize(size int, humanReadable bool) (string, error) {
+func FormatSize(size int64, humanReadable bool) (string, error) {
 	if size < 0 {
 		return "", fmt.Errorf("size cannot be negative")
 	}
