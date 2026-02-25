@@ -7,7 +7,7 @@ import (
 
 func GetSize(path string) (int, error) {
 	if path == "" {
-		return 0, fmt.Errorf("file path %s is empty", path)
+		return 0, fmt.Errorf("file path is empty")
 	}
 	fileInfo, err := os.Lstat(path)
 	if err != nil {
