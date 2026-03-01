@@ -13,19 +13,28 @@ import (
 func main() {
 	app := &cli.Command{
 		Name:  "hexlet-path-size",
-		Usage: "print size of a file or directory",
+		Usage: "print size of a file or directory; supports -r (recursive), -H (human-readable), -a (include hidden)",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
-				Name:    "human",
-				Aliases: []string{"H"},
-				Value:   false,
-				Usage:   "human-readable sizes (auto-select unit)",
+				Name:        "recursive",
+				Aliases:     []string{"r"},
+				Value:       false,
+				Usage:       "recursive size of directories",
+				DefaultText: "false",
 			},
 			&cli.BoolFlag{
-				Name:    "all",
-				Aliases: []string{"a"},
-				Value:   false,
-				Usage:   "include hidden files and directories",
+				Name:        "human",
+				Aliases:     []string{"H"},
+				Value:       false,
+				Usage:       "human-readable sizes (auto-select unit)",
+				DefaultText: "false",
+			},
+			&cli.BoolFlag{
+				Name:        "all",
+				Aliases:     []string{"a"},
+				Value:       false,
+				Usage:       "include hidden files and directories",
+				DefaultText: "false",
 			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
@@ -33,7 +42,7 @@ func main() {
 			if path == "" {
 				return fmt.Errorf("no arguments provided: please specify a path")
 			}
-			sizeBytes, err := files.GetSize(path, cmd.Bool("all"))
+			sizeBytes, err := files.GetSize(path, cmd.Bool("all"), cmd.Bool("recursive"))
 
 			if err != nil {
 				return fmt.Errorf("failed to get size: %w", err)

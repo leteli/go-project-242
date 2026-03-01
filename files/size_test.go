@@ -16,6 +16,26 @@ func createTestFile(t *testing.T, testFilePath string, size int) {
 	require.NoError(t, err, "unable to create test file")
 }
 
+func setupRecursionTest(t *testing.T) string {
+	dir := t.TempDir()
+	deepDirPath := filepath.Join(dir, "level1", "level2", "level3")
+	err := os.MkdirAll(deepDirPath, 0755)
+	require.NoError(t, err)
+
+	file20B := filepath.Join(dir, "file20")
+	createTestFile(t, file20B, 20)
+
+	hFileLvl1 := filepath.Join(dir, "level1", ".file_level1_30")
+	createTestFile(t, hFileLvl1, 30)
+
+	fileLvl2 := filepath.Join(dir, "level1", "level2", "file_level2_2080")
+	createTestFile(t, fileLvl2, 2080)
+
+	fileLvl3 := filepath.Join(dir, "level1", "level2", "level3", "file_level2_1700")
+	createTestFile(t, fileLvl3, 1700)
+	return dir
+}
+
 func TestGetPathSize(t *testing.T) {
 	tempDir := t.TempDir()
 
@@ -39,12 +59,14 @@ func TestGetPathSize(t *testing.T) {
 	file2 := filepath.Join(hiddenDir, "file2")
 	createTestFile(t, file2, 2)
 
-	// TODO: add setup funcs
+	recursiveDir := setupRecursionTest(t)
+
 	testCases := []struct {
 		name         string
 		path         string
 		expectedSize int64
 		withHidden   bool
+		recursive    bool
 		expectError  bool
 	}{
 		{
@@ -52,6 +74,7 @@ func TestGetPathSize(t *testing.T) {
 			path:         file5B,
 			expectedSize: 5,
 			withHidden:   false,
+			recursive:    false,
 			expectError:  false,
 		},
 		{
@@ -59,6 +82,7 @@ func TestGetPathSize(t *testing.T) {
 			path:         file10B,
 			expectedSize: 10,
 			withHidden:   false,
+			recursive:    false,
 			expectError:  false,
 		},
 		{
@@ -66,6 +90,7 @@ func TestGetPathSize(t *testing.T) {
 			path:         tempDir,
 			expectedSize: 15,
 			withHidden:   false,
+			recursive:    false,
 			expectError:  false,
 		},
 		{
@@ -73,6 +98,7 @@ func TestGetPathSize(t *testing.T) {
 			path:         "",
 			expectedSize: 0,
 			withHidden:   false,
+			recursive:    false,
 			expectError:  true,
 		},
 		{
@@ -80,6 +106,7 @@ func TestGetPathSize(t *testing.T) {
 			path:         tempDir,
 			expectedSize: 40,
 			withHidden:   true,
+			recursive:    false,
 			expectError:  false,
 		},
 		{
@@ -87,6 +114,7 @@ func TestGetPathSize(t *testing.T) {
 			path:         tempDir,
 			expectedSize: 15,
 			withHidden:   false,
+			recursive:    false,
 			expectError:  false,
 		},
 		{
@@ -94,6 +122,7 @@ func TestGetPathSize(t *testing.T) {
 			path:         tempDir2,
 			expectedSize: 1038,
 			withHidden:   true,
+			recursive:    false,
 			expectError:  false,
 		},
 		{
@@ -101,6 +130,7 @@ func TestGetPathSize(t *testing.T) {
 			path:         tempDir2,
 			expectedSize: 0,
 			withHidden:   false,
+			recursive:    false,
 			expectError:  false,
 		},
 		{
@@ -108,15 +138,40 @@ func TestGetPathSize(t *testing.T) {
 			path:         hiddenDir,
 			expectedSize: 0,
 			withHidden:   false,
+			recursive:    false,
+			expectError:  false,
+		},
+		{
+			name:         "1 dir with two nested levels",
+			path:         recursiveDir,
+			expectedSize: 3800,
+			withHidden:   false,
+			recursive:    true,
+			expectError:  false,
+		},
+		{
+			name:         "1 dir with two nested levels: 1 level only",
+			path:         recursiveDir,
+			expectedSize: 20,
+			withHidden:   false,
+			recursive:    false,
+			expectError:  false,
+		},
+		{
+			name:         "1 dir with 1 nested levels: with hidden",
+			path:         recursiveDir,
+			expectedSize: 3830,
+			withHidden:   true,
+			recursive:    true,
 			expectError:  false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			size, err := GetSize(tc.path, tc.withHidden)
+			size, err := GetSize(tc.path, tc.withHidden, tc.recursive)
 			if tc.expectError {
-				require.EqualError(t, err, "file path is empty")
+				require.ErrorIs(t, err, ErrorEmptyPath)
 			} else {
 				require.NoError(t, err)
 			}
