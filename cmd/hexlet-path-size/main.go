@@ -1,7 +1,7 @@
 package main
 
 import (
-	"code/files"
+	"code"
 	"context"
 	"fmt"
 	"log"
@@ -42,12 +42,12 @@ func main() {
 			if path == "" {
 				return fmt.Errorf("no arguments provided: please specify a path")
 			}
-			sizeBytes, err := files.GetSize(path, cmd.Bool("all"), cmd.Bool("recursive"))
+			sizeBytes, err := code.GetSize(path, cmd.Bool("all"), cmd.Bool("recursive"))
 
 			if err != nil {
 				return fmt.Errorf("failed to get size: %w", err)
 			}
-			res, err := files.FormatSize(sizeBytes, cmd.Bool("human"))
+			res, err := code.FormatSize(sizeBytes, cmd.Bool("human"))
 			if err != nil {
 				return fmt.Errorf("failed to format size %w", err)
 			}
