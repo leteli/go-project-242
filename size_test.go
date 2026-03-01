@@ -169,7 +169,7 @@ func TestGetPathSize(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			size, err := GetSize(tc.path, tc.withHidden, tc.recursive)
+			size, err := GetPathSize(tc.path, tc.withHidden, tc.recursive)
 			if tc.expectError {
 				require.ErrorIs(t, err, ErrorEmptyPath)
 			} else {
