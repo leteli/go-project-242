@@ -44,7 +44,7 @@ func getDirSize(path string, withHidden bool, recursive bool) (int64, error) {
 	return sizeBytes, nil
 }
 
-func GetPathSize(path string, withHidden bool, recursive bool) (int64, error) {
+func GetSize(path string, withHidden bool, recursive bool) (int64, error) {
 	if path == "" {
 		return 0, ErrorEmptyPath
 	}
@@ -64,4 +64,12 @@ func GetPathSize(path string, withHidden bool, recursive bool) (int64, error) {
 		return 0, err
 	}
 	return sizeBytes, nil
+}
+
+func GetPathSize(path string, humanReadable bool, withHidden bool, recursive bool) (string, error) {
+	sizeBytes, err := GetSize(path, withHidden, recursive)
+	if err != nil {
+		return "", err
+	}
+	return FormatSize(sizeBytes, humanReadable)
 }
