@@ -66,7 +66,7 @@ func GetSize(path string, withHidden bool, recursive bool) (int64, error) {
 	return sizeBytes, nil
 }
 
-func GetPathSize(path string, humanReadable bool, withHidden bool, recursive bool) (string, error) {
+func GetPathSize(path string, recursive bool, humanReadable bool, withHidden bool) (string, error) {
 	sizeBytes, err := GetSize(path, withHidden, recursive)
 	if err != nil {
 		return "", err

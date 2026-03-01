@@ -42,7 +42,7 @@ func main() {
 			if path == "" {
 				return fmt.Errorf("no arguments provided: please specify a path")
 			}
-			res, err := code.GetPathSize(path, cmd.Bool("human"), cmd.Bool("all"), cmd.Bool("recursive"))
+			res, err := code.GetPathSize(path, cmd.Bool("recursive"), cmd.Bool("human"), cmd.Bool("all"))
 			if err != nil {
 				return fmt.Errorf("failed to get size: %w", err)
 			}
