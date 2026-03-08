@@ -1,183 +1,163 @@
 package code
 
 import (
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func createTestFile(t *testing.T, testFilePath string, size int) {
-	t.Helper()
-	bytes := strings.Repeat("1", size)
-	err := os.WriteFile(testFilePath, []byte(bytes), 0644)
-	require.NoError(t, err, "unable to create test file")
+type testCase struct {
+	name         string
+	path         string
+	expectedSize int64
+	withHidden   bool
+	recursive    bool
+	expectError  bool
 }
 
-func setupRecursionTest(t *testing.T) string {
-	dir := t.TempDir()
-	deepDirPath := filepath.Join(dir, "level1", "level2", "level3")
-	err := os.MkdirAll(deepDirPath, 0755)
-	require.NoError(t, err)
-
-	file20B := filepath.Join(dir, "file20")
-	createTestFile(t, file20B, 20)
-
-	hFileLvl1 := filepath.Join(dir, "level1", ".file_level1_30")
-	createTestFile(t, hFileLvl1, 30)
-
-	fileLvl2 := filepath.Join(dir, "level1", "level2", "file_level2_2080")
-	createTestFile(t, fileLvl2, 2080)
-
-	fileLvl3 := filepath.Join(dir, "level1", "level2", "level3", "file_level2_1700")
-	createTestFile(t, fileLvl3, 1700)
-	return dir
-}
-
-func TestGetSize(t *testing.T) {
-	tempDir := t.TempDir()
-
-	file5B := filepath.Join(tempDir, "file5.txt")
-	createTestFile(t, file5B, 5)
-
-	file10B := filepath.Join(tempDir, "file10.txt")
-	createTestFile(t, file10B, 10)
-
-	hiddenFile25 := filepath.Join(tempDir, ".hidden25")
-	createTestFile(t, hiddenFile25, 25)
-
-	tempDir2 := t.TempDir()
-	file1038B := filepath.Join(tempDir2, ".hidden1038")
-	createTestFile(t, file1038B, 1038)
-
-	dir := t.TempDir()
-	hiddenDir, err := os.MkdirTemp(dir, ".hidden")
-	require.NoError(t, err)
-
-	file2 := filepath.Join(hiddenDir, "file2")
-	createTestFile(t, file2, 2)
-
-	recursiveDir := setupRecursionTest(t)
-
-	testCases := []struct {
-		name         string
-		path         string
-		expectedSize int64
-		withHidden   bool
-		recursive    bool
-		expectError  bool
-	}{
+func TestGetSize_Basic(t *testing.T) {
+	testDir1 := filepath.Join("testdata", "dir1")
+	testCases := []testCase{
 		{
-			name:         "1 file of 5 bytes",
-			path:         file5B,
+			name:         "5B file",
+			path:         filepath.Join(testDir1, "file5"),
 			expectedSize: 5,
 			withHidden:   false,
 			recursive:    false,
 			expectError:  false,
 		},
 		{
-			name:         "1 file of 10 bytes",
-			path:         file10B,
+			name:         "10B file",
+			path:         filepath.Join(testDir1, "file10"),
 			expectedSize: 10,
 			withHidden:   false,
 			recursive:    false,
 			expectError:  false,
 		},
 		{
-			name:         "1 directory with 2 files",
-			path:         tempDir,
+			name:         "dir with files",
+			path:         testDir1,
 			expectedSize: 15,
 			withHidden:   false,
 			recursive:    false,
 			expectError:  false,
 		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			size, err := GetSize(tc.path, tc.withHidden, tc.recursive)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedSize, size)
+		})
+	}
+}
+
+func TestGetSize_EmptyPath(t *testing.T) {
+	_, err := GetSize("", false, false)
+	require.ErrorIs(t, err, ErrorEmptyPath)
+}
+
+func TestGetSize_HiddenFiles(t *testing.T) {
+	testDir1 := filepath.Join("testdata", "dir1")
+	testCases := []testCase{
 		{
-			name:         "Empty path returns error",
-			path:         "",
-			expectedSize: 0,
-			withHidden:   false,
-			recursive:    false,
-			expectError:  true,
-		},
-		{
-			name:         "1 directory with 2 regular files and 1 hidden: show hidden",
-			path:         tempDir,
+			name:         "show hidden",
+			path:         testDir1,
 			expectedSize: 40,
 			withHidden:   true,
 			recursive:    false,
 			expectError:  false,
 		},
 		{
-			name:         "1 directory with 2 regular files and 1 hidden: do not show hidden",
-			path:         tempDir,
+			name:         "ignore hidden",
+			path:         testDir1,
 			expectedSize: 15,
 			withHidden:   false,
 			recursive:    false,
 			expectError:  false,
 		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			size, err := GetSize(tc.path, tc.withHidden, tc.recursive)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedSize, size)
+		})
+	}
+}
+
+func TestGetSize_SingleFile(t *testing.T) {
+	testDir2 := filepath.Join("testdata", "dir2")
+	testCases := []testCase{
 		{
-			name:         "1 directory with 1 hidden file: show hidden",
-			path:         tempDir2,
+			name:         "show hidden",
+			path:         testDir2,
 			expectedSize: 1038,
 			withHidden:   true,
 			recursive:    false,
 			expectError:  false,
 		},
 		{
-			name:         "1 directory with 1 hidden file: do not show hidden",
-			path:         tempDir2,
+			name:         "ignore hidden",
+			path:         testDir2,
 			expectedSize: 0,
 			withHidden:   false,
 			recursive:    false,
 			expectError:  false,
 		},
 		{
-			name:         "1 hidden directory with 1 regular file: do not show hidden",
-			path:         hiddenDir,
+			name:         "ignore hidden dir",
+			path:         filepath.Join("testdata", ".hidden"),
 			expectedSize: 0,
 			withHidden:   false,
 			recursive:    false,
 			expectError:  false,
 		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			size, err := GetSize(tc.path, tc.withHidden, tc.recursive)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedSize, size)
+		})
+	}
+}
+
+func TestGetSize_Recursive(t *testing.T) {
+	recDir := filepath.Join("testdata", "recDir")
+	testCases := []testCase{
 		{
-			name:         "1 dir with two nested levels",
-			path:         recursiveDir,
+			name:         "with recursion",
+			path:         recDir,
 			expectedSize: 3800,
 			withHidden:   false,
 			recursive:    true,
 			expectError:  false,
 		},
 		{
-			name:         "1 dir with two nested levels: 1 level only",
-			path:         recursiveDir,
+			name:         "1 level only",
+			path:         recDir,
 			expectedSize: 20,
 			withHidden:   false,
 			recursive:    false,
 			expectError:  false,
 		},
-		{
-			name:         "1 dir with 1 nested levels: with hidden",
-			path:         recursiveDir,
-			expectedSize: 3830,
-			withHidden:   true,
-			recursive:    true,
-			expectError:  false,
-		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			size, err := GetSize(tc.path, tc.withHidden, tc.recursive)
-			if tc.expectError {
-				require.ErrorIs(t, err, ErrorEmptyPath)
-			} else {
-				require.NoError(t, err)
-			}
+			require.NoError(t, err)
 			require.Equal(t, tc.expectedSize, size)
 		})
 	}
+}
+
+func TestGetSize_Recursive_All(t *testing.T) {
+	path := filepath.Join("testdata", "recDir")
+	size, err := GetSize(path, true, true)
+	require.NoError(t, err)
+	require.Equal(t, int64(3830), size)
 }
 
 func TestGetFormatSize(t *testing.T) {
@@ -189,7 +169,7 @@ func TestGetFormatSize(t *testing.T) {
 		expectError    bool
 	}{
 		{
-			name:           "Size in bytes",
+			name:           "No format",
 			size:           23711,
 			humanReadable:  false,
 			expectedResult: "23711B",
